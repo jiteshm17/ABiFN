@@ -1,0 +1,7 @@
+data/
+coco/
+**/__pycache__/
+**/*.pyc
+MMTOD_files.tar.gz
+models/
+models_original/
