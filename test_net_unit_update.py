@@ -17,6 +17,7 @@ import pdb
 import time
 import cv2
 import torch
+import torchvision
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.optim as optim
@@ -336,19 +337,25 @@ if __name__ == '__main__':
       # im_data_1 = nw_resize(im_data_1)
 
       rgb_path = data[4][0]
-      img = Image.open(rgb_path)
-      img = np.array(img)
-      img = TF.to_tensor(img)
-      img = img.unsqueeze_(0)
+      thermal_path = rgb_path.replace('RGB_Images','JPEGImages')
+      thermal_path = thermal_path.replace('.jpg','.jpeg')
 
-      im_data_1 = nw_resize(img)
-      im_data_1 = im_data_1.cuda()
+      img_rgb = np.array(Image.open(rgb_path))
+      img_rgb = torchvision.transforms.ToTensor()(img_rgb)
+      img_rgb.unsqueeze_(0)
+      img_rgb = img_rgb.cuda()
+
+      img_thermal = np.array(Image.open(thermal_path))
+      img_thermal = np.stack((img_thermal,)*3, axis=-1)
+      img_thermal = torchvision.transforms.ToTensor()(img_thermal)
+      img_thermal.unsqueeze_(0)
+      img_thermal = img_thermal.cuda()      
 
       det_tic = time.time()
       rois, cls_prob, bbox_pred, \
       rpn_loss_cls, rpn_loss_box, \
       RCNN_loss_cls, RCNN_loss_bbox, \
-      rois_label = fasterRCNN(im_data_1, im_data, im_info, gt_boxes, num_boxes)
+      rois_label = fasterRCNN(img_rgb, img_thermal, im_info, gt_boxes, num_boxes)
 
       scores = cls_prob.data
       boxes = rois.data[:, :, 1:5]

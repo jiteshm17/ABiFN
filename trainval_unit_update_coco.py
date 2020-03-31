@@ -17,6 +17,7 @@ import pdb
 import time
 from PIL import Image
 import torch
+import torchvision
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.optim as optim
@@ -443,6 +444,8 @@ if __name__ == '__main__':
       # gen_b.zero_grad()
 
       rgb_path = data[4][0]
+      thermal_path = rgb_path.replace('RGB_Images','JPEGImages')
+      thermal_path = thermal_path.replace('.jpg','.jpeg')
       
       # base_path = '/media/charan/Data/charan/surya/git-repo/MMTOD/data/VOCdevkit2007/VOC2007/RGB_Images/'
       # base_path = '/media/charan/Data/charan/surya/git-repo/MMTOD/data/VOCdevkit2007/VOC2007/JPEGImages/'
@@ -455,23 +458,21 @@ if __name__ == '__main__':
       # print(count)
       # try:
       # img = Image.open(os.path.join(base_path,img_name))
-      img = Image.open(rgb_path)
-      # except:
-      #   print('exception',a)
-      #   count = 0
-      #   continue
-      img = np.array(img)
-      img = TF.to_tensor(img)
-      img = img.unsqueeze_(0)
-      # count += 1 
+      img_rgb = np.array(Image.open(rgb_path))
+      img_rgb = torchvision.transforms.ToTensor()(img_rgb)
+      img_rgb.unsqueeze_(0)
+      img_rgb = img_rgb.cuda()
+
+      img_thermal = np.array(Image.open(thermal_path))
+      img_thermal = np.stack((img_thermal,)*3, axis=-1)
+      img_thermal = torchvision.transforms.ToTensor()(img_thermal)
+      img_thermal.unsqueeze_(0)
+      img_thermal = img_thermal.cuda()
+      
 
       # content, _ = gen_b(im_data) # generate rgb image
       # outputs = gen_a(content)
       # im_data_1 = (outputs + 1) / 2.
-      
-      im_data_1 = nw_resize(img)
-      im_data_1 = im_data_1.cuda()
-
 
       # vutils.save_image(im_data.data, './input.png', padding=0, normalize=True)
       # vutils.save_image(im_data_1.data, './converted_im.png',  padding=0, normalize=True)
@@ -480,7 +481,7 @@ if __name__ == '__main__':
       rois, cls_prob, bbox_pred, \
       rpn_loss_cls, rpn_loss_box, \
       RCNN_loss_cls, RCNN_loss_bbox, \
-      rois_label = fasterRCNN(im_data_1, im_data, im_info, gt_boxes, num_boxes)
+      rois_label = fasterRCNN(img_rgb, img_thermal, im_info, gt_boxes, num_boxes)
       
     #   gen_b.register_backward_hook(printgradnorm)
 
