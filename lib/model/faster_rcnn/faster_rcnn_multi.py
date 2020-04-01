@@ -56,8 +56,8 @@ class _fasterRCNN(nn.Module):
         # im_data_1,2 have shapes [1,3,512,640]                                                                                                       
         feat_1 = self.RCNN_base_1(im_data_1) # feat 1,2 have shapes [1, 1024, 32, 40]
         feat_2 = self.RCNN_base_2(im_data_2)
-        base_feat = torch.cat([feat_1, feat_2], dim=1) # combined feat has shape [1, 2048, 32, 40]
-        # base_feat = self.RCNN_base_3(combined_feat)
+        combined_feat = torch.cat([feat_1, feat_2], dim=1) # combined feat has shape [1, 2048, 32, 40]
+        base_feat = self.RCNN_base_3(combined_feat)
 
         # feed base feature map tp RPN to obtain rois
         rois, rpn_loss_cls, rpn_loss_bbox = self.RCNN_rpn(base_feat, im_info, gt_boxes, num_boxes)

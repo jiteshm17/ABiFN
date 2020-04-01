@@ -5,8 +5,6 @@ from __future__ import print_function
 from model.utils.config import cfg
 from model.faster_rcnn.faster_rcnn_multi import _fasterRCNN
 
-from collections import OrderedDict
-
 import torchvision
 import torch
 import torch.nn as nn
@@ -32,101 +30,6 @@ def conv3x3(in_planes, out_planes, stride=1):
   "3x3 convolution with padding"
   return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
            padding=1, bias=False)
-
-
-
-class UNet(nn.Module):
-
-    def __init__(self, in_channels=3, out_channels=1, init_features=32):
-        super(UNet, self).__init__()
-
-        features = init_features
-        self.encoder1 = UNet._block(in_channels, features, name="enc1")
-        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.encoder2 = UNet._block(features, features * 2, name="enc2")
-        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.encoder3 = UNet._block(features * 2, features * 4, name="enc3")
-        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.encoder4 = UNet._block(features * 4, features * 8, name="enc4")
-        self.pool4 = nn.MaxPool2d(kernel_size=2, stride=2)
-
-        self.bottleneck = UNet._block(features * 8, features * 16, name="bottleneck")
-
-        self.upconv4 = nn.ConvTranspose2d(
-            features * 16, features * 8, kernel_size=2, stride=2
-        )
-        self.decoder4 = UNet._block((features * 8) * 2, features * 8, name="dec4")
-        self.upconv3 = nn.ConvTranspose2d(
-            features * 8, features * 4, kernel_size=2, stride=2
-        )
-        self.decoder3 = UNet._block((features * 4) * 2, features * 4, name="dec3")
-        self.upconv2 = nn.ConvTranspose2d(
-            features * 4, features * 2, kernel_size=2, stride=2
-        )
-        self.decoder2 = UNet._block((features * 2) * 2, features * 2, name="dec2")
-        self.upconv1 = nn.ConvTranspose2d(
-            features * 2, features, kernel_size=2, stride=2
-        )
-        self.decoder1 = UNet._block(features * 2, features, name="dec1")
-
-        self.conv = nn.Conv2d(
-            in_channels=features, out_channels=out_channels, kernel_size=1
-        )
-
-    def forward(self, x):
-        enc1 = self.encoder1(x)
-        enc2 = self.encoder2(self.pool1(enc1))
-        enc3 = self.encoder3(self.pool2(enc2))
-        enc4 = self.encoder4(self.pool3(enc3))
-
-        bottleneck = self.bottleneck(self.pool4(enc4))
-
-        dec4 = self.upconv4(bottleneck)
-        dec4 = torch.cat((dec4, enc4), dim=1)
-        dec4 = self.decoder4(dec4)
-        dec3 = self.upconv3(dec4)
-        dec3 = torch.cat((dec3, enc3), dim=1)
-        dec3 = self.decoder3(dec3)
-        dec2 = self.upconv2(dec3)
-        dec2 = torch.cat((dec2, enc2), dim=1)
-        dec2 = self.decoder2(dec2)
-        dec1 = self.upconv1(dec2)
-        dec1 = torch.cat((dec1, enc1), dim=1)
-        dec1 = self.decoder1(dec1)
-        return torch.sigmoid(self.conv(dec1))
-
-    @staticmethod
-    def _block(in_channels, features, name):
-        return nn.Sequential(
-            OrderedDict(
-                [
-                    (
-                        name + "conv1",
-                        nn.Conv2d(
-                            in_channels=in_channels,
-                            out_channels=features,
-                            kernel_size=3,
-                            padding=1,
-                            bias=False,
-                        ),
-                    ),
-                    (name + "norm1", nn.BatchNorm2d(num_features=features)),
-                    (name + "relu1", nn.ReLU(inplace=True)),
-                    (
-                        name + "conv2",
-                        nn.Conv2d(
-                            in_channels=features,
-                            out_channels=features,
-                            kernel_size=3,
-                            padding=1,
-                            bias=False,
-                        ),
-                    ),
-                    (name + "norm2", nn.BatchNorm2d(num_features=features)),
-                    (name + "relu2", nn.ReLU(inplace=True)),
-                ]
-            )
-        )
 
 
 class BasicBlock(nn.Module):
@@ -344,44 +247,20 @@ class resnet(_fasterRCNN):
       resnet.load_state_dict({k:v for k,v in state_dict.items() if k in resnet.state_dict()})
       model_1.load_state_dict({k:v for k,v in state_dict.items() if k in model_1.state_dict()})
 
-    '''
-    # Build resnet.
-    # self.RCNN_base_1 = nn.Sequential(resnet.conv1, resnet.bn1,resnet.relu,
-    #   resnet.maxpool,resnet.layer1,resnet.layer2,resnet.layer3)
-    # self.RCNN_base_2 = nn.Sequential(model_1.conv1, model_1.bn1, model_1.relu,
-    #   model_1.maxpool,model_1.layer1,model_1.layer2,model_1.layer3)
-
-    '''
-
-    model_1 = UNet(in_channels=3, out_channels=3).cuda()
-    model_2 = UNet(in_channels=3, out_channels=3).cuda()
-
-    RGB_PATH = '/home/sarvani/Desktop/SaiCharan/misc/Unet/rgb_saved_weights/unet_rgb_3.pt'
-    THERMAL_PATH = '/home/sarvani/Desktop/SaiCharan/misc/Unet/thermal_saved_weights/unet_thermal_3.pt'
     
-    checkpoint_1 = torch.load(RGB_PATH)
-    checkpoint_2 = torch.load(THERMAL_PATH)
+    # Build resnet.
+    self.RCNN_base_1 = nn.Sequential(resnet.conv1, resnet.bn1,resnet.relu,
+      resnet.maxpool,resnet.layer1,resnet.layer2,resnet.layer3)
+    self.RCNN_base_2 = nn.Sequential(model_1.conv1, model_1.bn1, model_1.relu,
+      model_1.maxpool,model_1.layer1,model_1.layer2,model_1.layer3)
 
-    model_1.load_state_dict(checkpoint_1['model_state_dict'])
-    model_2.load_state_dict(checkpoint_2['model_state_dict'])
+    
 
-    print('Loaded Unet Weights')
+    # model_ft_1 = torchvision.models.squeezenet1_1(pretrained=True)
+    # model_ft_2 = torchvision.models.squeezenet1_1(pretrained=True)
 
-    self.RCNN_base_1 = nn.Sequential(
-        model_1.encoder1,model_1.pool1,
-        model_1.encoder2,model_1.pool2,
-        model_1.encoder3,model_1.pool3,
-        model_1.encoder4,model_1.pool4,
-        model_1.bottleneck
-    )
-
-    self.RCNN_base_2 = nn.Sequential(
-        model_2.encoder1,model_2.pool1,
-        model_2.encoder2,model_2.pool2,
-        model_2.encoder3,model_2.pool3,
-        model_2.encoder4,model_2.pool4,
-        model_2.bottleneck
-    )
+    # self.RCNN_base_1 = model_ft_1.features
+    # self.RCNN_base_2 =  model_ft_2.features
 
     self.RCNN_base_3 = one_by_one
     
@@ -393,7 +272,7 @@ class resnet(_fasterRCNN):
     else:
       self.RCNN_bbox_pred = nn.Linear(2048, 4 * self.n_classes)
 
-    '''
+    
     # Fix blocks
     for p in self.RCNN_base_1[0].parameters(): p.requires_grad=False
     for p in self.RCNN_base_1[1].parameters(): p.requires_grad=False
@@ -412,7 +291,7 @@ class resnet(_fasterRCNN):
       for p in self.RCNN_base_1[4].parameters(): p.requires_grad=False
       for p in self.RCNN_base_2[4].parameters(): p.requires_grad=False
 
-    '''
+
     def set_bn_fix(m):
       classname = m.__class__.__name__
       if classname.find('BatchNorm') != -1:
@@ -420,7 +299,7 @@ class resnet(_fasterRCNN):
 
     self.RCNN_base_1.apply(set_bn_fix)
     self.RCNN_base_2.apply(set_bn_fix)
-    # self.RCNN_top.apply(set_bn_fix)
+    self.RCNN_top.apply(set_bn_fix)
 
   def train(self, mode=True):
     # Override train so that the training mode is set as we want
@@ -429,11 +308,11 @@ class resnet(_fasterRCNN):
       # Set fixed blocks to be in eval mode
       self.RCNN_base_1.eval()
       self.RCNN_base_2.eval()
-      # self.RCNN_top.train()
-      # self.RCNN_base_1[5].train()
-      # self.RCNN_base_2[5].train()
-      # self.RCNN_base_1[6].train()
-      # self.RCNN_base_2[6].train()
+      
+      self.RCNN_base_1[5].train()
+      self.RCNN_base_2[5].train()
+      self.RCNN_base_1[6].train()
+      self.RCNN_base_2[6].train()
 
       def set_bn_eval(m):
         classname = m.__class__.__name__
@@ -442,7 +321,7 @@ class resnet(_fasterRCNN):
 
       self.RCNN_base_1.apply(set_bn_eval)
       self.RCNN_base_2.apply(set_bn_eval)
-      # self.RCNN_top.apply(set_bn_eval)
+      self.RCNN_top.apply(set_bn_eval)
 
   def _head_to_tail(self, pool5):
     fc7 = self.RCNN_top(pool5).mean(3).mean(2)
