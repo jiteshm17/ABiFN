@@ -200,8 +200,8 @@ if __name__ == '__main__':
   if args.set_cfgs is not None:
     cfg_from_list(args.set_cfgs)
 
-  print('Using config:')
-  pprint.pprint(cfg)
+  # print('Using config:')
+  # pprint.pprint(cfg)
 
   cfg.TRAIN.USE_FLIPPED = False
   imdb, roidb, ratio_list, ratio_index = combined_roidb(args.imdbval_name, False)
@@ -337,25 +337,25 @@ if __name__ == '__main__':
       # im_data_1 = nw_resize(im_data_1)
 
       rgb_path = data[4][0]
-      thermal_path = rgb_path.replace('RGB_Images','JPEGImages')
-      thermal_path = thermal_path.replace('.jpg','.jpeg')
+      # thermal_path = rgb_path.replace('RGB_Images','JPEGImages')
+      # thermal_path = thermal_path.replace('.jpg','.jpeg')
 
       img_rgb = np.array(Image.open(rgb_path))
       img_rgb = torchvision.transforms.ToTensor()(img_rgb)
       img_rgb.unsqueeze_(0)
       img_rgb = img_rgb.cuda()
 
-      img_thermal = np.array(Image.open(thermal_path))
-      img_thermal = np.stack((img_thermal,)*3, axis=-1)
-      img_thermal = torchvision.transforms.ToTensor()(img_thermal)
-      img_thermal.unsqueeze_(0)
-      img_thermal = img_thermal.cuda()      
+      # img_thermal = np.array(Image.open(thermal_path))
+      # img_thermal = np.stack((img_thermal,)*3, axis=-1)
+      # img_thermal = torchvision.transforms.ToTensor()(img_thermal)
+      # img_thermal.unsqueeze_(0)
+      # img_thermal = img_thermal.cuda()      
 
       det_tic = time.time()
       rois, cls_prob, bbox_pred, \
       rpn_loss_cls, rpn_loss_box, \
       RCNN_loss_cls, RCNN_loss_bbox, \
-      rois_label = fasterRCNN(img_rgb, img_thermal, im_info, gt_boxes, num_boxes)
+      rois_label = fasterRCNN(img_rgb, im_data, im_info, gt_boxes, num_boxes)
 
       scores = cls_prob.data
       boxes = rois.data[:, :, 1:5]

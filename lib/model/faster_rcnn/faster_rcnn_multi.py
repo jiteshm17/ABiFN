@@ -56,7 +56,21 @@ class _fasterRCNN(nn.Module):
         # im_data_1,2 have shapes [1,3,512,640]                                                                                                       
         feat_1 = self.RCNN_base_1(im_data_1) # feat 1,2 have shapes [1, 1024, 32, 40]
         feat_2 = self.RCNN_base_2(im_data_2)
-        combined_feat = torch.cat([feat_1, feat_2], dim=1) # combined feat has shape [1, 2048, 32, 40]
+
+        w = feat_1.size(2)
+        h = feat_1.size(3)
+
+        # x1 = torch.randn(1,2048,14,15)
+
+        feat_1 = feat_1.view(feat_1.size(0),feat_1.size(1),feat_1.size(2)*feat_1.size(3))
+        feat_2 = feat_2.view(feat_1.size(0),feat_1.size(1),feat_2.size(2)*feat_2.size(3))
+
+        combined_feat = torch.cat([feat_1,feat_2],dim=1)
+
+        combined_feat = combined_feat.view(combined_feat.size(0),combined_feat.size(1),w,h)
+
+        # combined_feat = torch.cat([feat_1, feat_2], dim=1) # combined feat has shape [1, 2048, 32, 40]
+        
         base_feat = self.RCNN_base_3(combined_feat)
 
         # feed base feature map tp RPN to obtain rois

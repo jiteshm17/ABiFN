@@ -5,7 +5,6 @@ from __future__ import print_function
 from model.utils.config import cfg
 from model.faster_rcnn.faster_rcnn_multi import _fasterRCNN
 
-import torchvision
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -247,23 +246,12 @@ class resnet(_fasterRCNN):
       resnet.load_state_dict({k:v for k,v in state_dict.items() if k in resnet.state_dict()})
       model_1.load_state_dict({k:v for k,v in state_dict.items() if k in model_1.state_dict()})
 
-    
     # Build resnet.
     self.RCNN_base_1 = nn.Sequential(resnet.conv1, resnet.bn1,resnet.relu,
       resnet.maxpool,resnet.layer1,resnet.layer2,resnet.layer3)
     self.RCNN_base_2 = nn.Sequential(model_1.conv1, model_1.bn1, model_1.relu,
       model_1.maxpool,model_1.layer1,model_1.layer2,model_1.layer3)
-
-    
-
-    # model_ft_1 = torchvision.models.squeezenet1_1(pretrained=True)
-    # model_ft_2 = torchvision.models.squeezenet1_1(pretrained=True)
-
-    # self.RCNN_base_1 = model_ft_1.features
-    # self.RCNN_base_2 =  model_ft_2.features
-
     self.RCNN_base_3 = one_by_one
-    
     self.RCNN_top = nn.Sequential(resnet.layer4)
 
     self.RCNN_cls_score = nn.Linear(2048, self.n_classes)
@@ -272,7 +260,6 @@ class resnet(_fasterRCNN):
     else:
       self.RCNN_bbox_pred = nn.Linear(2048, 4 * self.n_classes)
 
-    
     # Fix blocks
     for p in self.RCNN_base_1[0].parameters(): p.requires_grad=False
     for p in self.RCNN_base_1[1].parameters(): p.requires_grad=False
@@ -291,7 +278,6 @@ class resnet(_fasterRCNN):
       for p in self.RCNN_base_1[4].parameters(): p.requires_grad=False
       for p in self.RCNN_base_2[4].parameters(): p.requires_grad=False
 
-
     def set_bn_fix(m):
       classname = m.__class__.__name__
       if classname.find('BatchNorm') != -1:
@@ -308,7 +294,6 @@ class resnet(_fasterRCNN):
       # Set fixed blocks to be in eval mode
       self.RCNN_base_1.eval()
       self.RCNN_base_2.eval()
-      
       self.RCNN_base_1[5].train()
       self.RCNN_base_2[5].train()
       self.RCNN_base_1[6].train()

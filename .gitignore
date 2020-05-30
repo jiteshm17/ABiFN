@@ -10,3 +10,4 @@ output/
 **/*.pkl
 **/*.so
 **/*.o
+.vscode/

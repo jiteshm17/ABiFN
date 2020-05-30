@@ -444,8 +444,8 @@ if __name__ == '__main__':
       # gen_b.zero_grad()
 
       rgb_path = data[4][0]
-      thermal_path = rgb_path.replace('RGB_Images','JPEGImages')
-      thermal_path = thermal_path.replace('.jpg','.jpeg')
+      # thermal_path = rgb_path.replace('RGB_Images','JPEGImages')
+      # thermal_path = thermal_path.replace('.jpg','.jpeg')
       
       # base_path = '/media/charan/Data/charan/surya/git-repo/MMTOD/data/VOCdevkit2007/VOC2007/RGB_Images/'
       # base_path = '/media/charan/Data/charan/surya/git-repo/MMTOD/data/VOCdevkit2007/VOC2007/JPEGImages/'
@@ -463,11 +463,11 @@ if __name__ == '__main__':
       img_rgb.unsqueeze_(0)
       img_rgb = img_rgb.cuda()
 
-      img_thermal = np.array(Image.open(thermal_path))
-      img_thermal = np.stack((img_thermal,)*3, axis=-1)
-      img_thermal = torchvision.transforms.ToTensor()(img_thermal)
-      img_thermal.unsqueeze_(0)
-      img_thermal = img_thermal.cuda()
+      # img_thermal = np.array(Image.open(thermal_path))
+      # img_thermal = np.stack((img_thermal,)*3, axis=-1)
+      # img_thermal = torchvision.transforms.ToTensor()(img_thermal)
+      # img_thermal.unsqueeze_(0)
+      # img_thermal = img_thermal.cuda()
       
 
       # content, _ = gen_b(im_data) # generate rgb image
@@ -481,7 +481,7 @@ if __name__ == '__main__':
       rois, cls_prob, bbox_pred, \
       rpn_loss_cls, rpn_loss_box, \
       RCNN_loss_cls, RCNN_loss_bbox, \
-      rois_label = fasterRCNN(img_rgb, img_thermal, im_info, gt_boxes, num_boxes)
+      rois_label = fasterRCNN(img_rgb, im_data, im_info, gt_boxes, num_boxes)
       
     #   gen_b.register_backward_hook(printgradnorm)
 
