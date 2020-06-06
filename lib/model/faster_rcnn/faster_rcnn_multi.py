@@ -57,18 +57,63 @@ class _fasterRCNN(nn.Module):
         feat_1 = self.RCNN_base_1(im_data_1) # feat 1,2 have shapes [1, 1024, 32, 40]
         feat_2 = self.RCNN_base_2(im_data_2)
 
-        w = feat_1.size(2)
-        h = feat_1.size(3)
+        
+        # Mutan Fusion
+        NUM_LAYERS = 3
+        conv_layer_1 = nn.Conv2d(1024,2048,kernel_size=(3,3)).cuda() # 1024 is input channels, 2048 is output channels
+        conv_layer_2 = nn.ModuleList([
+            nn.Conv2d(2048, 2048,kernel_size=(3,3))
+            for i in range(NUM_LAYERS)]).cuda()
 
-        # x1 = torch.randn(1,2048,14,15)
+        feat1 = conv_layer_1(feat_1)
+        feat2 = conv_layer_1(feat_2)
+        # feat1 = nn.Dropout(0.25)(feat1)
+        # feat2 = nn.Dropout(0.25)(feat2)
 
-        feat_1 = feat_1.view(feat_1.size(0),feat_1.size(1),feat_1.size(2)*feat_1.size(3))
-        feat_2 = feat_2.view(feat_1.size(0),feat_1.size(1),feat_2.size(2)*feat_2.size(3))
+        x_mm = []
+        
+        for i in range(NUM_LAYERS):
+            x1 = conv_layer_2[i](feat1)
+            x1 = nn.Tanh()(x1)
+            
+            x2 = conv_layer_2[i](feat2)
+            x2 = nn.Tanh()(x2)
+            
+            x_mm.append(torch.mul(x1,x2))
 
-        combined_feat = torch.cat([feat_1,feat_2],dim=1)
+        x_mm = torch.stack(x_mm,dim=1)
+        batch_size = x_mm.size(0)
+        # nc,w,h = x_mm.shape[2],x_mm.shape[3],x_mm.shape[4]
+        combined_feat = torch.sum(x_mm,dim=1)
+        # print(combined_feat.shape)
 
-        combined_feat = combined_feat.view(combined_feat.size(0),combined_feat.size(1),w,h)
+        
+        # MLB Fusion
 
+        # conv_layer_1 = nn.Conv2d(1024,2048,kernel_size=(3,3),padding=1).cuda()
+        # conv_layer_2 = nn.Conv2d(1024,2048,kernel_size=(3,3),padding=1).cuda()
+
+        # feat_1 = conv_layer_1(feat_1)
+        # # feat_1 = nn.Tanh()(feat_1)
+        
+        # feat_2 = conv_layer_2(feat_2)
+        # # feat_2 = nn.Tanh()(feat_2)
+
+        # combined_feat = torch.mul(feat_1,feat_2)
+        
+        
+        # Different fusion scheme (first one suggested by Himanshu) (works)
+
+        # w = feat_1.size(2)
+        # h = feat_1.size(3)
+        # feat_1 = feat_1.view(feat_1.size(0),feat_1.size(1),feat_1.size(2)*feat_1.size(3))
+        # feat_2 = feat_2.view(feat_1.size(0),feat_1.size(1),feat_2.size(2)*feat_2.size(3))
+        # combined_feat = torch.cat([feat_1,feat_2],dim=1)
+        # combined_feat = combined_feat.view(combined_feat.size(0),combined_feat.size(1),w,h)
+
+        
+        # Below line uses original fusion scheme
+        
         # combined_feat = torch.cat([feat_1, feat_2], dim=1) # combined feat has shape [1, 2048, 32, 40]
         
         base_feat = self.RCNN_base_3(combined_feat)
