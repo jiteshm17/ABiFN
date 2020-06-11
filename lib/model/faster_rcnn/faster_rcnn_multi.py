@@ -21,6 +21,82 @@ import time
 import pdb
 from model.utils.net_utils import _smooth_l1_loss, _crop_pool_layer, _affine_grid_gen, _affine_theta
 
+# Below 2 networks are for attention
+
+class Network1(nn.Module):
+    def __init__(self,c,h,w):
+        super(Network1, self).__init__()
+        self.channels = c
+        self.maxPool = nn.MaxPool2d(kernel_size=(h,w))
+        self.avgPool = nn.AvgPool2d(kernel_size=(h,w))
+        self.fc1 = nn.Linear(in_features=c,out_features=c//8)
+        self.fc2 = nn.Linear(in_features=c//8,out_features=c//8)
+        self.fc3 = nn.Linear(in_features=c//8,out_features=c)
+
+    
+    def forwardAvg(self,x):
+        x = F.relu(self.avgPool(x))
+        x = x.view(-1,self.channels)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        return x
+
+
+    def forwardMax(self,x):
+        x = F.relu(self.maxPool(x))
+        x = x.view(-1,self.channels)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        return x
+    
+    def forward(self,x):
+        x_avg = self.forwardAvg(x)
+        x_max = self.forwardMax(x)
+        # return x_max+x_avg
+        return F.relu(x_avg+x_max)
+
+
+
+class Network2(nn.Module):
+    def __init__(self):
+        super(Network2, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels=2,out_channels=1,kernel_size=(1,1))
+        self.conv2 = nn.Conv2d(in_channels=1,out_channels=1,kernel_size=(1,1))
+
+    
+    def forward(self,x):
+        x1 = torch.max(x,dim=1)
+        x1[0].unsqueeze_(1)
+        x2 = torch.mean(x,dim=1)
+        x2.unsqueeze_(1)
+        x = torch.cat([x1[0],x2],dim=1)
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        # return x
+        return F.relu(x)  
+
+
+def apply_attention_fmap(feat,c,h,w):
+    model_1 = Network1(c,h,w).cuda()
+    f_ch = model_1(feat)
+    f_ch = f_ch.view(c,1,1)
+    f_ch = torch.mul(f_ch,feat)
+    # print(f_ch.shape)
+
+    return f_ch
+
+    # model_2 = Network2().cuda()
+    # f_sp = model_2(f_ch)
+    # f_sp = torch.mul(f_sp,f_ch)
+    # # print(f_sp.shape)
+
+    # f = f_sp + f_ch
+    # # print(f.shape)
+    # return f
+
+
 class _fasterRCNN(nn.Module):
     """ faster RCNN """
     def __init__(self, classes, class_agnostic):
@@ -57,34 +133,40 @@ class _fasterRCNN(nn.Module):
         feat_1 = self.RCNN_base_1(im_data_1) # feat 1,2 have shapes [1, 1024, 32, 40]
         feat_2 = self.RCNN_base_2(im_data_2)
 
+        # apply attention
+
+        feat_1 = apply_attention_fmap(feat_1,feat_1.size(1),feat_1.size(2),feat_1.size(3))
+        feat_2 = apply_attention_fmap(feat_2,feat_2.size(1),feat_2.size(2),feat_2.size(3))
+
         
         # Mutan Fusion
-        NUM_LAYERS = 3
-        conv_layer_1 = nn.Conv2d(1024,2048,kernel_size=(3,3)).cuda() # 1024 is input channels, 2048 is output channels
-        conv_layer_2 = nn.ModuleList([
-            nn.Conv2d(2048, 2048,kernel_size=(3,3))
-            for i in range(NUM_LAYERS)]).cuda()
-
-        feat1 = conv_layer_1(feat_1)
-        feat2 = conv_layer_1(feat_2)
-        # feat1 = nn.Dropout(0.25)(feat1)
-        # feat2 = nn.Dropout(0.25)(feat2)
-
-        x_mm = []
         
-        for i in range(NUM_LAYERS):
-            x1 = conv_layer_2[i](feat1)
-            x1 = nn.Tanh()(x1)
-            
-            x2 = conv_layer_2[i](feat2)
-            x2 = nn.Tanh()(x2)
-            
-            x_mm.append(torch.mul(x1,x2))
+        # NUM_LAYERS = 3
+        # conv_layer_1 = nn.Conv2d(1024,2048,kernel_size=(3,3)).cuda() # 1024 is input channels, 2048 is output channels
+        # conv_layer_2 = nn.ModuleList([
+        #     nn.Conv2d(2048, 2048,kernel_size=(3,3))
+        #     for i in range(NUM_LAYERS)]).cuda()
 
-        x_mm = torch.stack(x_mm,dim=1)
-        batch_size = x_mm.size(0)
-        # nc,w,h = x_mm.shape[2],x_mm.shape[3],x_mm.shape[4]
-        combined_feat = torch.sum(x_mm,dim=1)
+        # feat1 = conv_layer_1(feat_1)
+        # feat2 = conv_layer_1(feat_2)
+        # # feat1 = nn.Dropout(0.25)(feat1)
+        # # feat2 = nn.Dropout(0.25)(feat2)
+
+        # x_mm = []
+        
+        # for i in range(NUM_LAYERS):
+        #     x1 = conv_layer_2[i](feat1)
+        #     x1 = nn.Tanh()(x1)
+            
+        #     x2 = conv_layer_2[i](feat2)
+        #     x2 = nn.Tanh()(x2)
+            
+        #     x_mm.append(torch.mul(x1,x2))
+
+        # x_mm = torch.stack(x_mm,dim=1)
+        # batch_size = x_mm.size(0)
+        # # nc,w,h = x_mm.shape[2],x_mm.shape[3],x_mm.shape[4]
+        # combined_feat = torch.sum(x_mm,dim=1)
         # print(combined_feat.shape)
 
         
@@ -114,7 +196,7 @@ class _fasterRCNN(nn.Module):
         
         # Below line uses original fusion scheme
         
-        # combined_feat = torch.cat([feat_1, feat_2], dim=1) # combined feat has shape [1, 2048, 32, 40]
+        combined_feat = torch.cat([feat_1, feat_2], dim=1) # combined feat has shape [1, 2048, 32, 40]
         
         base_feat = self.RCNN_base_3(combined_feat)
 

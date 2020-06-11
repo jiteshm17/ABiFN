@@ -123,7 +123,7 @@ def combined_roidb(imdb_names, training=True):
     print('***',imdb_names,'*****')
     imdb = datasets.imdb.imdb(imdb_names, tmp.classes)
   else:
-    print('***else*****')
+    # print('***else*****')
     imdb = get_imdb(imdb_names)
 
   if training:
