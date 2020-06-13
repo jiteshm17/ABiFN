@@ -91,7 +91,7 @@ class roibatchLoader(data.Dataset):
         ratio = self.ratio_list_batch[index]
         thermal_img_name = self.imdb.image_path_at(index)
         rgb_img = thermal_img_name.replace('JPEGImages','RGB_Images')
-        rgb_img = rgb_img.replace('jpeg','jpg')
+        # rgb_img = rgb_img.replace('jpeg','jpg')
 
 
         if self._roidb[index_ratio]['need_crop']:
@@ -220,7 +220,7 @@ class roibatchLoader(data.Dataset):
         im_info = im_info.view(3)
         thermal_img_name = self.imdb.image_path_at(index)
         rgb_img = thermal_img_name.replace('JPEGImages','RGB_Images')
-        rgb_img = rgb_img.replace('jpeg','jpg')
+        # rgb_img = rgb_img.replace('jpeg','jpg')
 
         gt_boxes = torch.FloatTensor([1,1,1,1,1])
         num_boxes = 0

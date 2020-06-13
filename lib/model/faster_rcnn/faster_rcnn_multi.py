@@ -137,32 +137,32 @@ class _fasterRCNN(nn.Module):
         
         # Mutan Fusion
         
-        NUM_LAYERS = 3
-        conv_layer_1 = nn.Conv2d(1024,2048,kernel_size=(3,3),padding=1).cuda() # 1024 is input channels, 2048 is output channels
-        conv_layer_2 = nn.ModuleList([
-            nn.Conv2d(2048, 2048,kernel_size=(3,3),padding=1)
-            for i in range(NUM_LAYERS)]).cuda()
+        # NUM_LAYERS = 3
+        # conv_layer_1 = nn.Conv2d(1024,2048,kernel_size=(3,3),padding=1).cuda() # 1024 is input channels, 2048 is output channels
+        # conv_layer_2 = nn.ModuleList([
+        #     nn.Conv2d(2048, 2048,kernel_size=(3,3),padding=1)
+        #     for i in range(NUM_LAYERS)]).cuda()
 
-        feat1 = conv_layer_1(feat_1)
-        feat2 = conv_layer_1(feat_2)
-        # feat1 = nn.Dropout(0.25)(feat1)
-        # feat2 = nn.Dropout(0.25)(feat2)
+        # feat1 = conv_layer_1(feat_1)
+        # feat2 = conv_layer_1(feat_2)
+        # # feat1 = nn.Dropout(0.25)(feat1)
+        # # feat2 = nn.Dropout(0.25)(feat2)
 
-        x_mm = []
+        # x_mm = []
         
-        for i in range(NUM_LAYERS):
-            x1 = conv_layer_2[i](feat1)
-            x1 = nn.Tanh()(x1)
+        # for i in range(NUM_LAYERS):
+        #     x1 = conv_layer_2[i](feat1)
+        #     x1 = nn.Tanh()(x1)
             
-            x2 = conv_layer_2[i](feat2)
-            x2 = nn.Tanh()(x2)
+        #     x2 = conv_layer_2[i](feat2)
+        #     x2 = nn.Tanh()(x2)
             
-            x_mm.append(torch.mul(x1,x2))
+        #     x_mm.append(torch.mul(x1,x2))
 
-        x_mm = torch.stack(x_mm,dim=1)
-        batch_size = x_mm.size(0)
-        # nc,w,h = x_mm.shape[2],x_mm.shape[3],x_mm.shape[4]
-        combined_feat_mutan = torch.sum(x_mm,dim=1)
+        # x_mm = torch.stack(x_mm,dim=1)
+        # batch_size = x_mm.size(0)
+        # # nc,w,h = x_mm.shape[2],x_mm.shape[3],x_mm.shape[4]
+        # combined_feat_mutan = torch.sum(x_mm,dim=1)
         # print(combined_feat.shape)
 
         
@@ -188,8 +188,10 @@ class _fasterRCNN(nn.Module):
         combined_feat_h = torch.cat([feat_1,feat_2],dim=1)
         combined_feat_h = combined_feat_h.view(combined_feat_h.size(0),combined_feat_h.size(1),w,h)
 
+        combined_feat = combined_feat_h
 
-        combined_feat = combined_feat_h + combined_feat_mutan 
+
+        # combined_feat = combined_feat_h + combined_feat_mutan 
         
         # Below line uses original fusion scheme
         

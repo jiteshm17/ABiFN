@@ -231,6 +231,7 @@ class pascal_voc(imdb):
         ishards = np.zeros((num_objs), dtype=np.int32)
 
         # Load object bounding boxes into a data frame.
+        print('pvioc_ckpt')
         for ix, obj in enumerate(objs):
             if obj.find('name').text.lower().strip() in self._classes:
                 bbox = obj.find('bndbox')
