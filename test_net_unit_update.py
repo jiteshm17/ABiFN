@@ -357,6 +357,8 @@ if __name__ == '__main__':
       RCNN_loss_cls, RCNN_loss_bbox, \
       rois_label = fasterRCNN(img_rgb, im_data, im_info, gt_boxes, num_boxes)
 
+      # print(rois_label.shape)
+
       scores = cls_prob.data
       boxes = rois.data[:, :, 1:5]
 
@@ -375,6 +377,7 @@ if __name__ == '__main__':
                 box_deltas = box_deltas.view(1, -1, 4 * len(imdb.classes))
 
           pred_boxes = bbox_transform_inv(boxes, box_deltas, 1)
+          
           pred_boxes = clip_boxes(pred_boxes, im_info.data, 1)
       else:
           # Simply repeat the boxes, once for each class

@@ -126,13 +126,13 @@ class _fasterRCNN(nn.Module):
         
         # feed image data to base models to obtain base feature map
         # im_data_1,2 have shapes [1,3,512,640]                                                                                                       
-        feat_1 = self.RCNN_base_1(im_data_1) # feat 1,2 have shapes [1, 1024, 32, 40]
-        feat_2 = self.RCNN_base_2(im_data_2)
+        rgb_feat = self.RCNN_base_1(im_data_1) # feat 1,2 have shapes [1, 1024, 32, 40]
+        thermal_feat = self.RCNN_base_2(im_data_2)
 
         # apply attention
 
-        feat_1 = apply_attention_fmap(feat_1,feat_1.size(1),feat_1.size(2),feat_1.size(3))
-        feat_2 = apply_attention_fmap(feat_2,feat_2.size(1),feat_2.size(2),feat_2.size(3))
+        # feat_1 = apply_attention_fmap(feat_1,feat_1.size(1),feat_1.size(2),feat_1.size(3))
+        # feat_2 = apply_attention_fmap(feat_2,feat_2.size(1),feat_2.size(2),feat_2.size(3))
 
         
         # Mutan Fusion
@@ -181,14 +181,14 @@ class _fasterRCNN(nn.Module):
         
         # Different fusion scheme (first one suggested by Himanshu) (works)
 
-        w = feat_1.size(2)
-        h = feat_1.size(3)
-        feat_1 = feat_1.view(feat_1.size(0),feat_1.size(1),feat_1.size(2)*feat_1.size(3))
-        feat_2 = feat_2.view(feat_1.size(0),feat_1.size(1),feat_2.size(2)*feat_2.size(3))
-        combined_feat_h = torch.cat([feat_1,feat_2],dim=1)
-        combined_feat_h = combined_feat_h.view(combined_feat_h.size(0),combined_feat_h.size(1),w,h)
+        # w = feat_1.size(2)
+        # h = feat_1.size(3)
+        # feat_1 = feat_1.view(feat_1.size(0),feat_1.size(1),feat_1.size(2)*feat_1.size(3))
+        # feat_2 = feat_2.view(feat_1.size(0),feat_1.size(1),feat_2.size(2)*feat_2.size(3))
+        # combined_feat_h = torch.cat([feat_1,feat_2],dim=1)
+        # combined_feat_h = combined_feat_h.view(combined_feat_h.size(0),combined_feat_h.size(1),w,h)
 
-        combined_feat = combined_feat_h
+        # combined_feat = combined_feat_h
 
 
         # combined_feat = combined_feat_h + combined_feat_mutan 
@@ -197,41 +197,80 @@ class _fasterRCNN(nn.Module):
         
         # combined_feat = torch.cat([feat_1, feat_2], dim=1) # combined feat has shape [1, 2048, 32, 40]
         
-        base_feat = self.RCNN_base_3(combined_feat)
+        # base_feat = self.RCNN_base_3(combined_feat)
+
+        # Late fusion
 
         # feed base feature map tp RPN to obtain rois
-        rois, rpn_loss_cls, rpn_loss_bbox = self.RCNN_rpn(base_feat, im_info, gt_boxes, num_boxes)
+
+
+        # base_feat = thermal_feat
+
+        rois, rpn_loss_cls, rpn_loss_bbox = self.RCNN_rpn(thermal_feat, im_info, gt_boxes, num_boxes)
+        rois_rgb, _, _ = self.RCNN_rpn(rgb_feat, im_info, gt_boxes, num_boxes)
 
         # if it is training phrase, then use ground trubut bboxes for refining
         if self.training:
             roi_data = self.RCNN_proposal_target(rois, gt_boxes, num_boxes)
             rois, rois_label, rois_target, rois_inside_ws, rois_outside_ws = roi_data
 
-            rois_label = Variable(rois_label.view(-1).long())
-            rois_target = Variable(rois_target.view(-1, rois_target.size(2)))
-            rois_inside_ws = Variable(rois_inside_ws.view(-1, rois_inside_ws.size(2)))
-            rois_outside_ws = Variable(rois_outside_ws.view(-1, rois_outside_ws.size(2)))
+            roi_data_rgb = self.RCNN_proposal_target(rois_rgb, gt_boxes, num_boxes)
+            rois_rgb, rois_label_rgb, rois_target_rgb, rois_inside_ws_rgb, rois_outside_ws_rgb = roi_data_rgb 
+
         else:
             rois_label = None
             rois_target = None
             rois_inside_ws = None
             rois_outside_ws = None
+
+            rois_label_rgb = None
+            rois_target_rgb = None
+            rois_inside_ws_rgb = None
+            rois_outside_ws_rgb = None
+
             rpn_loss_cls = 0
             rpn_loss_bbox = 0
 
+        rois_orig_thermal = rois
+        rois_orig_rgb = rois_rgb
+        
         rois = Variable(rois)
+        rois_rgb = Variable(rois_rgb)
         # do roi pooling based on predicted rois
 
         if cfg.POOLING_MODE == 'align':
-            pooled_feat = self.RCNN_roi_align(base_feat, rois.view(-1, 5))
+            pooled_feat_thermal = self.RCNN_roi_align(thermal_feat, rois.view(-1, 5))
+            pooled_feat_rgb = self.RCNN_roi_align(rgb_feat, rois_rgb.view(-1, 5))
         elif cfg.POOLING_MODE == 'pool':
-            pooled_feat = self.RCNN_roi_pool(base_feat, rois.view(-1,5))
+            pooled_feat_thermal = self.RCNN_roi_pool(thermal_feat, rois.view(-1,5))
+            pooled_feat_rgb = self.RCNN_roi_pool(rgb_feat, rois_rgb.view(-1, 5))
+
+        # print(pooled_feat_thermal.shape)
+        # print(pooled_feat_rgb.shape)
+        pooled_feat = torch.cat([pooled_feat_thermal ,pooled_feat_rgb], dim=0)
+        # print('combined',pooled_feat.shape)
+        # base_feat = self.RCNN_base_3(combined_feat)
 
         # feed pooled features to top model
         pooled_feat = self._head_to_tail(pooled_feat)
 
         # compute bbox offset
         bbox_pred = self.RCNN_bbox_pred(pooled_feat)
+        if self.training:
+            # rois = torch.cat([rois,rois_rgb],dim=1)
+            rois_label = torch.cat([rois_label,rois_label_rgb],dim=0)
+            rois_target = torch.cat([rois_target,rois_target_rgb],dim=0)
+            rois_inside_ws = torch.cat([rois_inside_ws,rois_inside_ws_rgb],dim=0)
+            rois_outside_ws = torch.cat([rois_outside_ws,rois_outside_ws_rgb],dim=0)
+
+            rois_label = Variable(rois_label.view(-1).long())
+            rois_target = Variable(rois_target.view(-1, rois_target.size(2)))
+            rois_inside_ws = Variable(rois_inside_ws.view(-1, rois_inside_ws.size(2)))
+            rois_outside_ws = Variable(rois_outside_ws.view(-1, rois_outside_ws.size(2)))
+
+        else:
+            rois = torch.cat([rois,rois_rgb],dim=1)
+
         if self.training and not self.class_agnostic:
             # select the corresponding columns according to roi labels
             bbox_pred_view = bbox_pred.view(bbox_pred.size(0), int(bbox_pred.size(1) / 4), 4)
