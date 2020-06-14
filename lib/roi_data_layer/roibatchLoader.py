@@ -10,6 +10,8 @@ import torch.utils.data as data
 from PIL import Image
 import torch
 
+import torchvision
+
 from model.utils.config import cfg
 from roi_data_layer.minibatch import get_minibatch, get_minibatch
 from model.rpn.bbox_transform import bbox_transform_inv, clip_boxes
@@ -90,8 +92,14 @@ class roibatchLoader(data.Dataset):
         # if the image need to crop, crop to the target size.
         ratio = self.ratio_list_batch[index]
         thermal_img_name = self.imdb.image_path_at(index)
+        
+        th_w,th_h = data.shape[2],data.shape[1]
         rgb_img = thermal_img_name.replace('JPEGImages','RGB_Images')
-        # rgb_img = rgb_img.replace('jpeg','jpg')
+        img_rgb = Image.open(rgb_img)
+        img_rgb = img_rgb.resize((th_w,th_h),Image.ANTIALIAS)
+        img_rgb = np.array(img_rgb)
+        img_rgb = torchvision.transforms.ToTensor()(img_rgb)
+
 
 
         if self._roidb[index_ratio]['need_crop']:
@@ -213,20 +221,25 @@ class roibatchLoader(data.Dataset):
         padding_data = padding_data.permute(2, 0, 1).contiguous()
         im_info = im_info.view(3)
         # print("****in if****")
-        return padding_data, im_info, gt_boxes_padding, num_boxes,rgb_img
+        return padding_data, im_info, gt_boxes_padding, num_boxes,img_rgb
     else:
        
         data = data.permute(0, 3, 1, 2).contiguous().view(3, data_height, data_width)
         im_info = im_info.view(3)
         thermal_img_name = self.imdb.image_path_at(index)
+        
+        th_w,th_h = data.shape[2],data.shape[1]
         rgb_img = thermal_img_name.replace('JPEGImages','RGB_Images')
-        # rgb_img = rgb_img.replace('jpeg','jpg')
+        img_rgb = Image.open(rgb_img)
+        img_rgb = img_rgb.resize((th_w,th_h),Image.ANTIALIAS)
+        img_rgb = np.array(img_rgb)
+        img_rgb = torchvision.transforms.ToTensor()(img_rgb)
 
         gt_boxes = torch.FloatTensor([1,1,1,1,1])
         num_boxes = 0
         # print("****in else****")
 
-        return data, im_info, gt_boxes, num_boxes ,rgb_img
+        return data, im_info, gt_boxes, num_boxes ,img_rgb
 
   def __len__(self):
     return len(self._roidb)

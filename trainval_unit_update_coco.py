@@ -443,7 +443,7 @@ if __name__ == '__main__':
       # gen_a.zero_grad()
       # gen_b.zero_grad()
 
-      rgb_path = data[4][0]
+      img_rgb = data[4][0]
       # thermal_path = rgb_path.replace('RGB_Images','JPEGImages')
       # thermal_path = thermal_path.replace('.jpg','.jpeg')
       
@@ -458,8 +458,7 @@ if __name__ == '__main__':
       # print(count)
       # try:
       # img = Image.open(os.path.join(base_path,img_name))
-      img_rgb = np.array(Image.open(rgb_path))
-      img_rgb = torchvision.transforms.ToTensor()(img_rgb)
+      
       img_rgb.unsqueeze_(0)
       img_rgb = img_rgb.cuda()
 

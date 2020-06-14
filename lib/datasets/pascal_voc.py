@@ -213,7 +213,12 @@ class pascal_voc(imdb):
         filename = os.path.join(self._data_path, 'Annotations', index + '.xml')
         tree = ET.parse(filename)
         
-        objs = tree.findall('object')
+        root = tree.getroot()
+        if root.find('taken_date') is not None:
+            objs = root.find('fir').findall('object')
+        else:
+            objs = tree.findall('object')
+
         # if not self.config['use_diff']:
         #     # Exclude the samples labeled as difficult
         #     non_diff_objs = [
@@ -223,7 +228,9 @@ class pascal_voc(imdb):
         #     #         len(objs) - len(non_diff_objs))
         #     objs = non_diff_objs
         num_objs = len(objs)
-
+        if num_objs == 0:
+            print(filename)
+        
         boxes = np.zeros((num_objs, 4), dtype=np.uint16)
         gt_classes = np.zeros((num_objs), dtype=np.int32)
         overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
@@ -236,10 +243,20 @@ class pascal_voc(imdb):
             if obj.find('name').text.lower().strip() in self._classes:
                 bbox = obj.find('bndbox')
                 # Make pixel indexes 0-based
-                x1 = min(float(bbox.find('xmin').text), float(640)) 
-                y1 = min(float(bbox.find('ymin').text), float(512))
-                x2 = min(float(bbox.find('xmax').text), float(640)) 
-                y2 = min(float(bbox.find('ymax').text), float(512))
+                # x1 = min(float(bbox.find('xmin').text), float(640)) 
+                # y1 = min(float(bbox.find('ymin').text), float(512))
+                # x2 = min(float(bbox.find('xmax').text), float(640)) 
+                # y2 = min(float(bbox.find('ymax').text), float(512))
+
+                x1 = max(float(bbox.find('xmin').text) - 1,0)
+                y1 = max(float(bbox.find('ymin').text) - 1,0)
+                x2 = max(float(bbox.find('xmax').text) - 1,0)
+                y2 = max(float(bbox.find('ymax').text) - 1,0)
+
+                assert x2 > x1 and y2 > y1 and x1 >= 0 and y1 >= 0
+
+                # if x1 < 0 or y1 < 0:
+                #     print((x1,y1),(x2,y2))
 
                 diffc = obj.find('difficult')
                 difficult = 0 if diffc == None else int(diffc.text)

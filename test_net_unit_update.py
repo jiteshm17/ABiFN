@@ -336,12 +336,11 @@ if __name__ == '__main__':
       # im_data_1 = (outputs + 1) / 2.
       # im_data_1 = nw_resize(im_data_1)
 
-      rgb_path = data[4][0]
+      img_rgb = data[4][0]
       # thermal_path = rgb_path.replace('RGB_Images','JPEGImages')
       # thermal_path = thermal_path.replace('.jpg','.jpeg')
 
-      img_rgb = np.array(Image.open(rgb_path))
-      img_rgb = torchvision.transforms.ToTensor()(img_rgb)
+
       img_rgb.unsqueeze_(0)
       img_rgb = img_rgb.cuda()
 
