@@ -271,6 +271,7 @@ if __name__ == '__main__':
 
   # initilize the tensor holder here.
   im_data = torch.FloatTensor(1)
+  rgb_data = torch.FloatTensor(1)
   im_info = torch.FloatTensor(1)
   num_boxes = torch.LongTensor(1)
   gt_boxes = torch.FloatTensor(1)
@@ -278,12 +279,14 @@ if __name__ == '__main__':
   # ship to cuda
   if args.cuda:
     im_data = im_data.cuda()
+    rgb_data = rgb_data.cuda()
     im_info = im_info.cuda()
     num_boxes = num_boxes.cuda()
     gt_boxes = gt_boxes.cuda()
 
   # make variable
   im_data = Variable(im_data)
+  rgb_data = Variable(rgb_data)
   im_info = Variable(im_info)
   num_boxes = Variable(num_boxes)
   gt_boxes = Variable(gt_boxes)
@@ -299,34 +302,8 @@ if __name__ == '__main__':
     pdb.set_trace()
 
   fasterRCNN.create_architecture()
-  # ckpt = torch.load('./lib/model/unit/models/rgb2thermal.pt')
-  # print('\n\n\n\n****Loaded GAN weights****\n')
+  
   config = get_config(args.config)
-
-  # gen_a = VAEGenA(config['input_dim_a'], config['gen'])
-  # gen_b = VAEGenB(config['input_dim_b'], config['gen'])
-  
-  # gen_a.load_state_dict(ckpt['a'])
-  # gen_b.load_state_dict(ckpt['b'])
-  
-  # gen_a = gen_a.cuda()
-  # gen_b = gen_b.cuda()
-
-  # for p in gen_a.parameters(): p.requires_grad = False
-
-  # for p in gen_b.parameters(): p.requires_grad = False
-  
-  # for key, p in gen_a.named_parameters(): p.requires_grad = True
-
-  # for key, p in gen_b.named_parameters(): p.requires_grad = True
-
-  # def set_in_fix(m):
-  #   classname = m.__class__.__name__
-  #   if classname.find('InstanceNorm') != -1:
-  #     for p in m.parameters(): p.requires_grad=False
-
-  # gen_a.apply(set_in_fix)
-  # gen_b.apply(set_in_fix)
 
   lr = cfg.TRAIN.LEARNING_RATE
   lr = args.lr
@@ -342,21 +319,6 @@ if __name__ == '__main__':
       else:
         params += [{'params':[value],'lr':lr, 'weight_decay': cfg.TRAIN.WEIGHT_DECAY}]
 
-  # for key, value in dict(gen_a.named_parameters()).items():
-  #   if value.requires_grad:
-  #     if 'bias' in key:
-  #       params += [{'params':[value],'lr':lr*(cfg.TRAIN.DOUBLE_BIAS + 1), \
-  #               'weight_decay': cfg.TRAIN.BIAS_DECAY and cfg.TRAIN.WEIGHT_DECAY or 0}]
-  #     else:
-  #       params += [{'params':[value],'lr':lr, 'weight_decay': cfg.TRAIN.WEIGHT_DECAY}]
-
-  # for key, value in dict(gen_b.named_parameters()).items():
-  #   if value.requires_grad:
-  #     if 'bias' in key:
-  #       params += [{'params':[value],'lr':lr*(cfg.TRAIN.DOUBLE_BIAS + 1), \
-  #               'weight_decay': cfg.TRAIN.BIAS_DECAY and cfg.TRAIN.WEIGHT_DECAY or 0}]
-  #     else:
-  #       params += [{'params':[value],'lr':lr, 'weight_decay': cfg.TRAIN.WEIGHT_DECAY}]
 
   if args.optimizer == "adam":
     lr = lr * 0.1
@@ -364,28 +326,6 @@ if __name__ == '__main__':
 
   elif args.optimizer == "sgd":
     optimizer = torch.optim.SGD(params, momentum=cfg.TRAIN.MOMENTUM)
-
-  # checkpoint_1 = torch.load('./models/res101_coco/coco/faster_rcnn_1_15_19903.pth')
-  # checkpoint_2 = torch.load('./models/res101_thermal/pascal_voc/faster_rcnn_1_15_1963.pth')
-
-  # checkpoint_1_model = OrderedDict([(k.replace('RCNN_base', 'RCNN_base_2'), v) for k, v in checkpoint_1['model'].items()  if 'RCNN_base' in k ])
-
-  # checkpoint_2_model = OrderedDict([(k.replace('RCNN_base', 'RCNN_base_1'), v) if 'RCNN_base' in k else (k, v) for k, v in checkpoint_2['model'].items()])
-
-  # checkpoint_2_model.update(checkpoint_1_model)
-
-  # checkpoint_2_model['RCNN_base_3.op.weight'] = fasterRCNN.state_dict()['RCNN_base_3.op.weight']
-  # checkpoint_2_model['RCNN_base_3.op.bias'] = fasterRCNN.state_dict()['RCNN_base_3.op.bias']
-
-
-  # fasterRCNN.load_state_dict(checkpoint_2_model)
-  # args.session = checkpoint_2['session']
-  # args.start_epoch = checkpoint_1['epoch']
-
-  # optimizer.load_state_dict(checkpoint_1['optimizer'])
-
-  # if 'pooling_mode' in checkpoint_2.keys():
-  #     cfg.POOLING_MODE = checkpoint_2['pooling_mode']
 
 
   if args.resume:
@@ -432,6 +372,7 @@ if __name__ == '__main__':
       data = next(data_iter)
       with torch.no_grad():
         im_data.resize_(data[0].size()).copy_(data[0])
+        rgb_data.resize_(data[0].size()).copy_(data[4])
         im_info.resize_(data[1].size()).copy_(data[1])
         gt_boxes.resize_(data[2].size()).copy_(data[2])
         num_boxes.resize_(data[3].size()).copy_(data[3])
@@ -440,47 +381,12 @@ if __name__ == '__main__':
     
       nw_resize = Resize_GPU(im_shape[2], im_shape[3])
 
-      # gen_a.zero_grad()
-      # gen_b.zero_grad()
-
-      img_rgb = data[4][0]
-      # thermal_path = rgb_path.replace('RGB_Images','JPEGImages')
-      # thermal_path = thermal_path.replace('.jpg','.jpeg')
       
-      # base_path = '/media/charan/Data/charan/surya/git-repo/MMTOD/data/VOCdevkit2007/VOC2007/RGB_Images/'
-      # base_path = '/media/charan/Data/charan/surya/git-repo/MMTOD/data/VOCdevkit2007/VOC2007/JPEGImages/'
-      
-      # remaining_digits = 5-len(a)
-      # zeros_temp = '0'*remaining_digits
-      # img_name = 'FLIR_'+zeros_temp+a+'.jpg'
-
-      
-      # print(count)
-      # try:
-      # img = Image.open(os.path.join(base_path,img_name))
-      
-      img_rgb.unsqueeze_(0)
-      img_rgb = img_rgb.cuda()
-
-      # img_thermal = np.array(Image.open(thermal_path))
-      # img_thermal = np.stack((img_thermal,)*3, axis=-1)
-      # img_thermal = torchvision.transforms.ToTensor()(img_thermal)
-      # img_thermal.unsqueeze_(0)
-      # img_thermal = img_thermal.cuda()
-      
-
-      # content, _ = gen_b(im_data) # generate rgb image
-      # outputs = gen_a(content)
-      # im_data_1 = (outputs + 1) / 2.
-
-      # vutils.save_image(im_data.data, './input.png', padding=0, normalize=True)
-      # vutils.save_image(im_data_1.data, './converted_im.png',  padding=0, normalize=True)
-
       fasterRCNN.zero_grad()
       rois, cls_prob, bbox_pred, \
       rpn_loss_cls, rpn_loss_box, \
       RCNN_loss_cls, RCNN_loss_bbox, \
-      rois_label = fasterRCNN(img_rgb, im_data, im_info, gt_boxes, num_boxes)
+      rois_label = fasterRCNN(rgb_data, im_data, im_info, gt_boxes, num_boxes)
       
     #   gen_b.register_backward_hook(printgradnorm)
 

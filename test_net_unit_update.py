@@ -262,6 +262,7 @@ if __name__ == '__main__':
 
   # initialize the tensor holder here.
   im_data = torch.FloatTensor(1)
+  rgb_data = torch.FloatTensor(1)
   im_info = torch.FloatTensor(1)
   num_boxes = torch.LongTensor(1)
   gt_boxes = torch.FloatTensor(1)
@@ -269,12 +270,14 @@ if __name__ == '__main__':
   # ship to cuda
   if args.cuda:
     im_data = im_data.cuda()
+    rgb_data = rgb_data.cuda()
     im_info = im_info.cuda()
     num_boxes = num_boxes.cuda()
     gt_boxes = gt_boxes.cuda()
 
   # make variable
   im_data = Variable(im_data)
+  rgb_data = Variable(rgb_data)
   im_info = Variable(im_info)
   num_boxes = Variable(num_boxes)
   gt_boxes = Variable(gt_boxes)
@@ -323,6 +326,7 @@ if __name__ == '__main__':
       data = next(data_iter)
       with torch.no_grad():
         im_data.resize_(data[0].size()).copy_(data[0])
+        rgb_data.resize_(data[0].size()).copy_(data[4])
         im_info.resize_(data[1].size()).copy_(data[1])
         gt_boxes.resize_(data[2].size()).copy_(data[2])
         num_boxes.resize_(data[3].size()).copy_(data[3])
@@ -331,30 +335,11 @@ if __name__ == '__main__':
       nw_resize = Resize_GPU(im_shape[2], im_shape[3])
 
 
-      # content, _ = gen_b(im_data)
-      # outputs = gen_a(content)
-      # im_data_1 = (outputs + 1) / 2.
-      # im_data_1 = nw_resize(im_data_1)
-
-      img_rgb = data[4][0]
-      # thermal_path = rgb_path.replace('RGB_Images','JPEGImages')
-      # thermal_path = thermal_path.replace('.jpg','.jpeg')
-
-
-      img_rgb.unsqueeze_(0)
-      img_rgb = img_rgb.cuda()
-
-      # img_thermal = np.array(Image.open(thermal_path))
-      # img_thermal = np.stack((img_thermal,)*3, axis=-1)
-      # img_thermal = torchvision.transforms.ToTensor()(img_thermal)
-      # img_thermal.unsqueeze_(0)
-      # img_thermal = img_thermal.cuda()      
-
       det_tic = time.time()
       rois, cls_prob, bbox_pred, \
       rpn_loss_cls, rpn_loss_box, \
       RCNN_loss_cls, RCNN_loss_bbox, \
-      rois_label = fasterRCNN(img_rgb, im_data, im_info, gt_boxes, num_boxes)
+      rois_label = fasterRCNN(rgb_data, im_data, im_info, gt_boxes, num_boxes)
 
       # print(rois_label.shape)
 

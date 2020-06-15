@@ -99,6 +99,7 @@ class roibatchLoader(data.Dataset):
         img_rgb = img_rgb.resize((th_w,th_h),Image.ANTIALIAS)
         img_rgb = np.array(img_rgb)
         img_rgb = torchvision.transforms.ToTensor()(img_rgb)
+        img_rgb = torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(img_rgb)
 
 
 
@@ -220,7 +221,9 @@ class roibatchLoader(data.Dataset):
             # permute trim_data to adapt to downstream processing
         padding_data = padding_data.permute(2, 0, 1).contiguous()
         im_info = im_info.view(3)
-        # print("****in if****")
+        
+        img_rgb.resize_(padding_data.size())
+
         return padding_data, im_info, gt_boxes_padding, num_boxes,img_rgb
     else:
        
@@ -234,10 +237,12 @@ class roibatchLoader(data.Dataset):
         img_rgb = img_rgb.resize((th_w,th_h),Image.ANTIALIAS)
         img_rgb = np.array(img_rgb)
         img_rgb = torchvision.transforms.ToTensor()(img_rgb)
+        img_rgb = torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(img_rgb)
 
         gt_boxes = torch.FloatTensor([1,1,1,1,1])
         num_boxes = 0
-        # print("****in else****")
+        
+        img_rgb.resize_(data.size())
 
         return data, im_info, gt_boxes, num_boxes ,img_rgb
 
