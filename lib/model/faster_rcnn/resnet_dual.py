@@ -5,6 +5,8 @@ from __future__ import print_function
 from model.utils.config import cfg
 from model.faster_rcnn.faster_rcnn_multi import _fasterRCNN
 
+import torchvision
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -31,6 +33,79 @@ def conv3x3(in_planes, out_planes, stride=1):
            padding=1, bias=False)
 
 
+# Below 2 networks are for attention
+
+class Network1(nn.Module):
+    def __init__(self,c,h,w):
+        super(Network1, self).__init__()
+        self.channels = c
+        self.maxPool = nn.MaxPool2d(kernel_size=(h,w))
+        self.avgPool = nn.AvgPool2d(kernel_size=(h,w))
+        self.fc1 = nn.Linear(in_features=c,out_features=c//8)
+        self.fc2 = nn.Linear(in_features=c//8,out_features=c//8)
+        self.fc3 = nn.Linear(in_features=c//8,out_features=c)
+
+    
+    def forwardAvg(self,x):
+        x = F.relu(self.avgPool(x))
+        x = x.view(-1,self.channels)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        return x
+
+
+    def forwardMax(self,x):
+        x = F.relu(self.maxPool(x))
+        x = x.view(-1,self.channels)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        return x
+    
+    def forward(self,x):
+        x_avg = self.forwardAvg(x)
+        x_max = self.forwardMax(x)
+        return torch.sigmoid(x_avg+x_max)
+
+
+
+class Network2(nn.Module):
+    def __init__(self):
+        super(Network2, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels=2,out_channels=1,kernel_size=(1,1))
+        self.conv2 = nn.Conv2d(in_channels=1,out_channels=1,kernel_size=(1,1))
+
+    
+    def forward(self,x):
+        x1,_ = torch.max(x,dim=1)
+        x1 = F.relu(x1)
+        x1.unsqueeze_(1)
+        x2 = F.relu(torch.mean(x,dim=1))
+        x2.unsqueeze_(1)
+        x = torch.cat([x1,x2],dim=1)
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        return torch.sigmoid(x)  
+
+
+def apply_attention_fmap(feat,c,h,w):
+    bs = feat.size(0)
+    model_1 = Network1(c,h,w).cuda()
+    f_ch = model_1(feat)
+    f_ch = f_ch.  view(bs,c,1,1)
+    f_ch = torch.mul(f_ch,feat)
+    # print(f_ch.shape)
+
+    model_2 = Network2().cuda()
+    f_sp = model_2(f_ch)
+    f_sp = F.relu(torch.mul(f_sp,f_ch))
+    # print(f_sp.shape)
+    f = F.relu(f_sp + f_ch)
+    # print(f.shape)
+    return f
+
+
 class BasicBlock(nn.Module):
   expansion = 1
 
@@ -52,6 +127,7 @@ class BasicBlock(nn.Module):
     out = self.relu(out)
 
     out = self.conv2(out)
+    
     out = self.bn2(out)
 
     if self.downsample is not None:
@@ -81,15 +157,15 @@ class Bottleneck(nn.Module):
 
   def forward(self, x):
     residual = x
-
     out = self.conv1(x)
     out = self.bn1(out)
     out = self.relu(out)
 
+    out = apply_attention_fmap(out,out.size(1),out.size(2),out.size(3))
+
     out = self.conv2(out)
     out = self.bn2(out)
     out = self.relu(out)
-
     out = self.conv3(out)
     out = self.bn3(out)
 
@@ -247,12 +323,17 @@ class resnet(_fasterRCNN):
       model_1.load_state_dict({k:v for k,v in state_dict.items() if k in model_1.state_dict()})
 
     # Build resnet.
+
+    
     self.RCNN_base_1 = nn.Sequential(resnet.conv1, resnet.bn1,resnet.relu,
       resnet.maxpool,resnet.layer1,resnet.layer2,resnet.layer3)
     self.RCNN_base_2 = nn.Sequential(model_1.conv1, model_1.bn1, model_1.relu,
       model_1.maxpool,model_1.layer1,model_1.layer2,model_1.layer3)
     self.RCNN_base_3 = one_by_one
-    self.RCNN_top = nn.Sequential(resnet.layer4)
+
+    pretrained_resnet = torchvision.models.resnet101(pretrained=False).cuda()
+
+    self.RCNN_top = nn.Sequential(pretrained_resnet.layer4)
 
     self.RCNN_cls_score = nn.Linear(2048, self.n_classes)
     if self.class_agnostic:

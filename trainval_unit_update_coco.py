@@ -387,8 +387,6 @@ if __name__ == '__main__':
       rpn_loss_cls, rpn_loss_box, \
       RCNN_loss_cls, RCNN_loss_bbox, \
       rois_label = fasterRCNN(rgb_data, im_data, im_info, gt_boxes, num_boxes)
-      
-    #   gen_b.register_backward_hook(printgradnorm)
 
       loss = rpn_loss_cls.mean() + rpn_loss_box.mean() \
            + RCNN_loss_cls.mean() + RCNN_loss_bbox.mean()

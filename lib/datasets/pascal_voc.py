@@ -212,71 +212,107 @@ class pascal_voc(imdb):
         """
         filename = os.path.join(self._data_path, 'Annotations', index + '.xml')
         tree = ET.parse(filename)
-        
-        root = tree.getroot()
-        if root.find('taken_date') is not None:
-            objs = root.find('fir').findall('object')
-        else:
+
+        if tree.find('folder') is not None and tree.find('folder').text == "KAIST Multispectral Ped Benchmark":
             objs = tree.findall('object')
+            num_objs = len(objs)
+            if num_objs == 0:
+                print(filename)
 
-        # if not self.config['use_diff']:
-        #     # Exclude the samples labeled as difficult
-        #     non_diff_objs = [
-        #         obj for obj in objs if int(obj.find('difficult').text) == 0]
-        #     # if len(non_diff_objs) != len(objs):
-        #     #     print 'Removed {} difficult objects'.format(
-        #     #         len(objs) - len(non_diff_objs))
-        #     objs = non_diff_objs
-        num_objs = len(objs)
-        if num_objs == 0:
-            print(filename)
-        
-        boxes = np.zeros((num_objs, 4), dtype=np.uint16)
-        gt_classes = np.zeros((num_objs), dtype=np.int32)
-        overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
-        # "Seg" area for pascal is just the box area
-        seg_areas = np.zeros((num_objs), dtype=np.float32)
-        ishards = np.zeros((num_objs), dtype=np.int32)
+            boxes = np.zeros((num_objs, 4), dtype=np.uint16)
+            gt_classes = np.zeros((num_objs), dtype=np.int32)
+            overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
+            # "Seg" area for pascal is just the box area
+            seg_areas = np.zeros((num_objs), dtype=np.float32)
+            ishards = np.zeros((num_objs), dtype=np.int32)
 
-        # Load object bounding boxes into a data frame.
-        for ix, obj in enumerate(objs):
-            if obj.find('name').text.lower().strip() in self._classes:
-                bbox = obj.find('bndbox')
-                # Make pixel indexes 0-based
-                # x1 = min(float(bbox.find('xmin').text), float(640)) 
-                # y1 = min(float(bbox.find('ymin').text), float(512))
-                # x2 = min(float(bbox.find('xmax').text), float(640)) 
-                # y2 = min(float(bbox.find('ymax').text), float(512))
+            for ix, obj in enumerate(objs):
+                if obj.find('name').text.lower().strip() in self._classes:
+                    bbox = obj.find('bndbox')
+                    x1 = min(max(float(bbox.find('x').text) - 1,0),639)
+                    y1 = min(max(float(bbox.find('y').text) - 1,0),511)
+                    x2 = min(float(bbox.find('w').text) + x1 - 1,639)
+                    y2 = min(float(bbox.find('h').text) + y1 - 1,511)
 
-                x1 = max(float(bbox.find('xmin').text) - 1,0)
-                y1 = max(float(bbox.find('ymin').text) - 1,0)
-                x2 = max(float(bbox.find('xmax').text) - 1,0)
-                y2 = max(float(bbox.find('ymax').text) - 1,0)
+                    assert x2 > x1 and y2 > y1 and x1 >= 0 and y1 >= 0
 
-                assert x2 > x1 and y2 > y1 and x1 >= 0 and y1 >= 0
+                    diffc = obj.find('difficult')
+                    difficult = 0 if diffc == None else int(diffc.text)
+                    ishards[ix] = difficult
 
-                # if x1 < 0 or y1 < 0:
-                #     print((x1,y1),(x2,y2))
+                    cls = self._class_to_ind[obj.find('name').text.lower().strip()]
+                    boxes[ix, :] = [x1, y1, x2, y2]
+                    gt_classes[ix] = cls
+                    overlaps[ix, cls] = 1.0
+                    seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
+            
+            overlaps = scipy.sparse.csr_matrix(overlaps)
+            
+            return {'boxes': boxes,
+                    'gt_classes': gt_classes,
+                    'gt_ishard': ishards,
+                    'gt_overlaps': overlaps,
+                    'flipped': False,
+                    'seg_areas': seg_areas}
 
-                diffc = obj.find('difficult')
-                difficult = 0 if diffc == None else int(diffc.text)
-                ishards[ix] = difficult
 
-                cls = self._class_to_ind[obj.find('name').text.lower().strip()]
-                boxes[ix, :] = [x1, y1, x2, y2]
-                gt_classes[ix] = cls
-                overlaps[ix, cls] = 1.0
-                seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
+        else:
+            root = tree.getroot()
+            if root.find('taken_date') is not None:
+                objs = root.find('fir').findall('object')
+            else:
+                objs = tree.findall('object')
 
-        overlaps = scipy.sparse.csr_matrix(overlaps)
+            num_objs = len(objs)
+            if num_objs == 0:
+                print(filename)
+            
+            boxes = np.zeros((num_objs, 4), dtype=np.uint16)
+            gt_classes = np.zeros((num_objs), dtype=np.int32)
+            overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
+            # "Seg" area for pascal is just the box area
+            seg_areas = np.zeros((num_objs), dtype=np.float32)
+            ishards = np.zeros((num_objs), dtype=np.int32)
 
-        
-        return {'boxes': boxes,
-                'gt_classes': gt_classes,
-                'gt_ishard': ishards,
-                'gt_overlaps': overlaps,
-                'flipped': False,
-                'seg_areas': seg_areas}
+            # Load object bounding boxes into a data frame.
+            for ix, obj in enumerate(objs):
+                if obj.find('name').text.lower().strip() in self._classes:
+                    bbox = obj.find('bndbox')
+                    # Make pixel indexes 0-based
+                    # x1 = min(float(bbox.find('xmin').text), float(640)) 
+                    # y1 = min(float(bbox.find('ymin').text), float(512))
+                    # x2 = min(float(bbox.find('xmax').text), float(640)) 
+                    # y2 = min(float(bbox.find('ymax').text), float(512))
+
+                    x1 = max(float(bbox.find('xmin').text) - 1,0)
+                    y1 = max(float(bbox.find('ymin').text) - 1,0)
+                    x2 = max(float(bbox.find('xmax').text) - 1,0)
+                    y2 = max(float(bbox.find('ymax').text) - 1,0)
+
+                    assert x2 > x1 and y2 > y1 and x1 >= 0 and y1 >= 0
+
+                    # if x1 < 0 or y1 < 0:
+                    #     print((x1,y1),(x2,y2))
+
+                    diffc = obj.find('difficult')
+                    difficult = 0 if diffc == None else int(diffc.text)
+                    ishards[ix] = difficult
+
+                    cls = self._class_to_ind[obj.find('name').text.lower().strip()]
+                    boxes[ix, :] = [x1, y1, x2, y2]
+                    gt_classes[ix] = cls
+                    overlaps[ix, cls] = 1.0
+                    seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
+
+            overlaps = scipy.sparse.csr_matrix(overlaps)
+
+            
+            return {'boxes': boxes,
+                    'gt_classes': gt_classes,
+                    'gt_ishard': ishards,
+                    'gt_overlaps': overlaps,
+                    'flipped': False,
+                    'seg_areas': seg_areas}
 
     def _get_comp_id(self):
         comp_id = (self._comp_id + '_' + self._salt if self.config['use_salt']

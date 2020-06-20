@@ -99,7 +99,7 @@ class roibatchLoader(data.Dataset):
         img_rgb = img_rgb.resize((th_w,th_h),Image.ANTIALIAS)
         img_rgb = np.array(img_rgb)
         img_rgb = torchvision.transforms.ToTensor()(img_rgb)
-        img_rgb = torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(img_rgb)
+        # img_rgb = torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(img_rgb)
 
 
 
@@ -237,7 +237,7 @@ class roibatchLoader(data.Dataset):
         img_rgb = img_rgb.resize((th_w,th_h),Image.ANTIALIAS)
         img_rgb = np.array(img_rgb)
         img_rgb = torchvision.transforms.ToTensor()(img_rgb)
-        img_rgb = torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(img_rgb)
+        # img_rgb = torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(img_rgb)
 
         gt_boxes = torch.FloatTensor([1,1,1,1,1])
         num_boxes = 0
