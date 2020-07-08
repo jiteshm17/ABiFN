@@ -1,4 +1,4 @@
-# Multiomodal Object Detection using Thermal and RGB Images
+# Multimodal Object Detection using Thermal and RGB Images
 
 Generate a fused representation (feature map) of an RGB Image and it's corresponding thermal image for improving the accuracy (mean average precision score) for the task of object detection.
 We are using a dataset where we have thermal images, corresponding RGB images and the groudtruths (labels) for the thermal images. 
