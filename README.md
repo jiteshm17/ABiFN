@@ -1,10 +1,10 @@
-# Multimodal Object Detection using Thermal and RGB Images
+# Attention-based Bi-modal Fusion Network for Object Detection at Night-time
 
-Generate a fused representation (feature map) of an RGB Image and it's corresponding thermal image for improving the accuracy (mean average precision score) for the task of object detection.
-We are using a dataset where we have thermal images, corresponding RGB images and the groudtruths (labels) for the thermal images. 
-We are exploring fusion techniques to fuse the RGB feature map and the thermal feature map obtained from a CNN to perform better in the domain of object detection
+Camera-based object detection in low-light/night-time conditions is a fundamental problem because of insufficient lighting. 
+So far, a mid-level fusion of RGB and Thermal images is done to complement each other’s features. 
+In this work, an Attention-based Bi-modal Fusion Network (ABiFN) is proposed for better object detection in the thermal domain by integrating a channel-wise attention module. The experimental results show our framework improves the mAP by 4.13 points on the FLIR dataset.
 
-Objects classes for detection are car, person and bicycle
+Object classes for detection are car, person and bicycle
 
 Dataset used is the FLIR dataset -> https://www.flir.in/oem/adas/adas-dataset-form/
 
