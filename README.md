@@ -1,4 +1,4 @@
-# Attention-based Bi-modal Fusion Network for Object Detection at Night-time
+# Attention-based Bi-modal Fusion Network for Object Detection at Night-time [[Paper Link]](https://digital-library.theiet.org/content/journals/10.1049/el.2020.1952)
 
 Camera-based object detection in low-light/night-time conditions is a fundamental problem because of insufficient lighting. 
 So far, a mid-level fusion of RGB and Thermal images is done to complement each other’s features. 
@@ -6,7 +6,7 @@ In this work, an Attention-based Bi-modal Fusion Network (ABiFN) is proposed for
 
 Object classes for detection are car, person and bicycle
 
-Dataset used is the FLIR dataset -> https://www.flir.in/oem/adas/adas-dataset-form/
+Dataset used is the FLIR dataset - https://www.flir.in/oem/adas/adas-dataset-form/
 
 # Acknowledgement
 
